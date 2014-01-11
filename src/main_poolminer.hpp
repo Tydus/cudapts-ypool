@@ -1,3 +1,6 @@
+#ifndef __MAIN_POOL_H__
+#define __MAIN_POOL_H__
+
 #if defined(__MINGW64__)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -36,16 +39,16 @@ typedef struct {
 class CBlockProvider {
 public:
   CBlockProvider() { }
-  ~CBlockProvider() { }
-  virtual blockHeader_t* getBlock(unsigned int thread_id, unsigned int last_time, unsigned int counter) = 0;
-  virtual blockHeader_t* getOriginalBlock() = 0;
-  virtual void setBlockTo(blockHeader_t* newblock) = 0;
+  virtual ~CBlockProvider() { }
+  virtual blockHeader_t* getBlock(unsigned int thread_id) = 0;
   virtual void submitBlock(blockHeader_t* block, unsigned int thread_id) = 0;
-  virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) = 0;
 };
 
 volatile uint64_t totalCollisionCount = 0;
 volatile uint64_t totalShareCount = 0;
+
+extern int main2();
+extern void start_worker_thread(int n, CBlockProvider *bprovider);
 
 #define MAX_MOMENTUM_NONCE (1<<26) // 67.108.864
 #define SEARCH_SPACE_BITS  50
@@ -66,13 +69,13 @@ bool protoshares_revalidateCollision(blockHeader_t* block, uint8_t* midHash, uin
   memcpy(tempHash+4, midHash, 32);
   totalCollisionCount += 2; // we can use every collision twice -> A B and B A (srsly?)
   //printf("Collision found %8d = %8d | num: %d\n", indexA, indexB, totalCollisionCount);
-        
+
   sph_sha256_context c256; //SPH
-		
+
   // get full block hash (for A B)
   block->birthdayA = indexA;
   block->birthdayB = indexB;
-  uint8_t proofOfWorkHash[32];        
+  uint8_t proofOfWorkHash[32];
   //SPH
   sph_sha256_init(&c256);
   sph_sha256(&c256, (unsigned char*)block, 80+8);
@@ -98,7 +101,7 @@ bool protoshares_revalidateCollision(blockHeader_t* block, uint8_t* midHash, uin
     }
   if( hashMeetsTarget )
     bp->submitBlock(block, thread_id);
-		
+
   // get full block hash (for B A)
   block->birthdayA = indexB;
   block->birthdayB = indexA;
@@ -148,7 +151,7 @@ void protoshares_process_512(blockHeader_t* block, CBlockProvider* bp, unsigned 
   }
 
   SHA512_Context c512_avxsse;
-  
+
   SHA512_Init(&c512_avxsse);
   SHA512_Update_Simple(&c512_avxsse, midHash, 32+4);
   SHA512_PreFinal(&c512_avxsse);
@@ -169,3 +172,5 @@ void protoshares_process_512(blockHeader_t* block, CBlockProvider* bp, unsigned 
     resmap[birthday] = mine;
   }
 }
+
+#endif

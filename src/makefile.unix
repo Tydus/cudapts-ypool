@@ -122,6 +122,16 @@ OBJS= \
 	obj/sph_sha2.o \
 	obj/sph_sha2big.o \
 	obj/gpuhash.o \
+	obj/jhlib.o \
+	obj/main.o \
+	obj/sha2.o \
+	obj/transaction.o \
+	obj/xptClient.o \
+	obj/xptClientPacketHandler.o \
+	obj/xptPacketbuffer.o \
+	obj/xptServer.o \
+	obj/xptServerPacketHandler.o \
+	obj/win.o \
 	obj/main_poolminer.o
 
 all: cudapts
