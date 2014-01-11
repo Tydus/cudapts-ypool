@@ -47,7 +47,7 @@ int GPUHasher::Initialize() {
 #define MOMENTUM_N_HASHES (1<<26)
   /* Note:  This is the allocation size.  We can only use
    * one less than this because each countbit entry uses two bits. */
-#define NUM_COUNTBITS_POWER 31
+#define NUM_COUNTBITS_POWER 32
 #define COUNTBITS_SLOTS_POWER (NUM_COUNTBITS_POWER-1)
 #define NUM_COUNTBITS_WORDS (1<<(NUM_COUNTBITS_POWER-5))
 
