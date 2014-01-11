@@ -56,7 +56,7 @@ ifeq ($(linuxdist),unknown)
 	BOOSTLIBOPTS=	-l boost_system$(BOOST_LIB_SUFFIX) \
 	-l boost_filesystem$(BOOST_LIB_SUFFIX) \
 	-l boost_program_options$(BOOST_LIB_SUFFIX) \
-	-l boost_thread$(BOOST_LIB_SUFFIX) \
+	-l boost_thread-mt$(BOOST_LIB_SUFFIX) \
 	-l boost_chrono$(BOOST_LIB_SUFFIX)
 endif
 
@@ -69,7 +69,8 @@ LIBS+= \
  -Wl,-B$(LMODE2) \
    -l z \
    -l dl \
-   -l cudart \
+   -l rt \
+   -l cudart_static \
    -l pthread
 
 # Hardening
