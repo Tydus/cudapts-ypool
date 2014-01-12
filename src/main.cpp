@@ -337,7 +337,7 @@ int main(int argc, char** argv)
 	bprovider = createBlockProvider();
 
 	// start miner threads
-	for(uint32 i = 0; i < commandlineInput.numThreads; i++) {
+	for(uint32 i = 0; i <= commandlineInput.numThreads; i++) {
         start_worker_thread(i, bprovider);
     }
 
