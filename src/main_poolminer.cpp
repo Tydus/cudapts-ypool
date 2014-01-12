@@ -156,11 +156,6 @@ public:
     _gpu = new GPUHasher(gpu_device_id);
     _gpu->Initialize();
 
-		/* Ensure that thread is pinned to its allocation */
-		_hashblock = (uint64_t *)malloc(sizeof(uint64_t) * (1<<26));
-        _gpu = new GPUHasher(gpu_device_id);
-        _gpu->Initialize();
-
         std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
         boost::this_thread::sleep(boost::posix_time::seconds(1));
         if (use_avxsse4)
