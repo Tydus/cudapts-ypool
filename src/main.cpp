@@ -2,7 +2,6 @@
 #define __MAIN_CPP__
 
 #include "global.h"
-#include "main_poolminer.cpp"
 
 // miner version string (for pool statistic)
 #ifdef __WIN32__
@@ -55,48 +54,6 @@ void jhProtominer_submitShare(minerProtosharesBlock_t* block)
 	xptClient_foundShare(xptClient, xptShare);
 	LeaveCriticalSection(&cs_xptClient);
 }
-
-int jhProtominer_minerThread(int threadIndex)
-{
-	while( true )
-	{
-		// local work data
-		minerProtosharesBlock_t minerProtosharesBlock = {0};
-		// has work?
-		bool hasValidWork = false;
-		EnterCriticalSection(&workDataSource.cs_work);
-		if( workDataSource.height > 0 )
-		{
-			// get work data
-			minerProtosharesBlock.version = workDataSource.version;
-			//minerProtosharesBlock.nTime = workDataSource.nTime;
-			minerProtosharesBlock.nTime = (uint32)time(NULL);
-			minerProtosharesBlock.nBits = workDataSource.nBits;
-			minerProtosharesBlock.nonce = 0;
-			minerProtosharesBlock.height = workDataSource.height;
-			memcpy(minerProtosharesBlock.merkleRootOriginal, workDataSource.merkleRootOriginal, 32);
-			memcpy(minerProtosharesBlock.prevBlockHash, workDataSource.prevBlockHash, 32);
-			memcpy(minerProtosharesBlock.targetShare, workDataSource.targetShare, 32);
-			minerProtosharesBlock.uniqueMerkleSeed = uniqueMerkleSeedGenerator;
-			uniqueMerkleSeedGenerator++;
-			// generate merkle root transaction
-			bitclient_generateTxHash(sizeof(uint32), (uint8*)&minerProtosharesBlock.uniqueMerkleSeed, workDataSource.coinBase1Size, workDataSource.coinBase1, workDataSource.coinBase2Size, workDataSource.coinBase2, workDataSource.txHash);
-			bitclient_calculateMerkleRoot(workDataSource.txHash, workDataSource.txHashCount+1, minerProtosharesBlock.merkleRoot);
-			hasValidWork = true;
-		}
-		LeaveCriticalSection(&workDataSource.cs_work);
-		if( hasValidWork == false )
-		{
-			Sleep(1);
-			continue;
-		}
-		// valid work data present, start mining
-
-        protoshares_process_512(&minerProtosharesBlock);
-	}
-	return 0;
-}
-
 
 /*
  * Reads data from the xpt connection state and writes it to the universal workDataSource struct

@@ -1,7 +1,8 @@
 #ifndef __XPT_GLOBAL_H__
 #define __XPT_GLOBAL_H__
 
-#include "main_poolminer.hpp"
+#include "main_poolminer_export.hpp"
+
 #include<stdio.h>
 #include<time.h>
 #include<stdlib.h>
@@ -69,8 +70,6 @@ typedef struct
 	uint8	target[32];
 	uint8	targetShare[32];
 }minerProtosharesBlock_t;
-
-#include"algorithm.h"
 
 void jhProtominer_submitShare(minerProtosharesBlock_t* block);
 
