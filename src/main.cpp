@@ -194,7 +194,7 @@ void jhProtominer_printHelp()
 	puts("                                     You can specifiy an port after the url using -o url:port");
 	puts("   -u                            The username (workername) used for login");
 	puts("   -p                            The password used for login");
-	puts("   -t <num>                      The number of threads used for mining (default 1)");
+	puts("   -t <device_id>                The id of cuda device for mining (default 0)");
 	puts("                                 For most efficient mining, set to number of CPU cores");
 	puts("Example usage:");
 	puts("   jhProtominer.exe -o http://poolurl.com:10034 -u workername.pts_1 -p workerpass -t 4");
@@ -258,7 +258,7 @@ void jhProtominer_parseCommandline(int argc, char **argv)
 				exit(0);
 			}
 			commandlineInput.numThreads = atoi(argv[cIdx]);
-			if( commandlineInput.numThreads < 1 || commandlineInput.numThreads > 128 )
+			if( commandlineInput.numThreads < 0 || commandlineInput.numThreads > 128 )
 			{
 				printf("-t parameter out of range");
 				exit(0);
@@ -292,7 +292,7 @@ int main(int argc, char** argv)
 	SYSTEM_INFO sysinfo;
 	GetSystemInfo( &sysinfo );
 	commandlineInput.numThreads = sysinfo.dwNumberOfProcessors;
-	commandlineInput.numThreads = min(max(commandlineInput.numThreads, 1), 1);
+	commandlineInput.numThreads = min(max(commandlineInput.numThreads, 20), 0);
 	jhProtominer_parseCommandline(argc, argv);
 	printf("\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB\n");
 	printf("\xBA  jhProtominer (v0.1e)                            \xBA\n");
@@ -300,7 +300,7 @@ int main(int argc, char** argv)
 	printf("\xBA  http://ypool.net                                \xBA\n");
 	printf("\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC\n");
 	printf("Launching miner...\n");
-	printf("Using %d threads\n", commandlineInput.numThreads);
+	printf("Using gpu %d\n", commandlineInput.numThreads);
 	// set priority to below normal
 	SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
 	// init winsock

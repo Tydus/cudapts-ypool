@@ -246,6 +246,7 @@ int main2()
 
 	// init everything:
 	thread_num_max = 1; //GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
+    // ??? Use last gpu device only
 	gpu_device_id = commandlineInput.numThreads;
 	COLLISION_TABLE_BITS = 21;
 
