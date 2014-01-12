@@ -94,6 +94,7 @@ public:
         blockHeader_t submitblock; //!
         memcpy((unsigned char*)&submitblock, (unsigned char*)block, 88);
         std::cout << "[WORKER] collision found: " << submitblock.birthdayA << " <-> " << submitblock.birthdayB << " #" << totalCollisionCount << " @ " << submitblock.nTime << " by " << thread_id << std::endl;
+        totalShareCount += 1;
 
         std::vector<uint8_t> key(submitblock.hashMerkleRoot, submitblock.hashMerkleRoot + 32);
         minerProtosharesBlock_t& b = _merkleRootReg[key];
