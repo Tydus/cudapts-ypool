@@ -16,6 +16,16 @@ __global__ void filter_sha512_kernel(__restrict__ uint64_t *dev_hashes, const __
 __global__ void filter_and_rewrite_sha512_kernel(__restrict__ uint64_t *dev_hashes, const __restrict__ uint32_t *dev_countbits, __restrict__ uint64_t *dev_results);
 __global__ void populate_filter_kernel(__restrict__ uint64_t *dev_hashes, __restrict__ uint32_t *dev_countbits);
 
+#define SWAP64(n) \
+  (((n) << 56)                                        \
+   | (((n) & 0xff00) << 40)                        \
+   | (((n) & 0xff0000) << 24)                        \
+   | (((n) & 0xff000000) << 8)                        \
+   | (((n) >> 8) & 0xff000000)                        \
+   | (((n) >> 24) & 0xff0000)                        \
+   | (((n) >> 40) & 0xff00)                        \
+   | ((n) >> 56))
+
 
 /* Empty constructor, please call Initialize */
 GPUHasher::GPUHasher(int gpu_device_id) {
@@ -31,6 +41,7 @@ int GPUHasher::Initialize() {
     exit(-1);
   }
 
+  cudaStream_t *streamptr = (cudaStream_t *)opaqueStream_t;
   error = cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
 
   size_t free, total;
@@ -43,6 +54,8 @@ int GPUHasher::Initialize() {
     exit(-1);
     return -1;
   }
+
+  cudaStreamCreate(streamptr);
 
 #define MOMENTUM_N_HASHES (1<<26)
   /* Note:  This is the allocation size.  We can only use
@@ -72,6 +85,8 @@ int GPUHasher::Initialize() {
     return -1;
   }
 
+  cudaFuncSetCacheConfig(search_sha512_kernel, cudaFuncCachePreferL1);
+
   return 0;
 
 }
@@ -83,6 +98,7 @@ GPUHasher::~GPUHasher() {
 
 int GPUHasher::ComputeHashes(uint64_t data[16], uint64_t *hashes) {
   cudaError_t error;
+  cudaStream_t *streamptr = (cudaStream_t *)opaqueStream_t;
   error = cudaMemcpy(dev_data, data, sizeof(uint64_t)*16, cudaMemcpyHostToDevice);
   if (error != cudaSuccess) {
     fprintf(stderr, "Could not memcpy dev_data (%d)\n", error);
@@ -94,21 +110,20 @@ int GPUHasher::ComputeHashes(uint64_t data[16], uint64_t *hashes) {
   // 1024 grid slots
 
   dim3 gridsize(4096,32);
-  cudaMemset(dev_results, 0, sizeof(uint64_t)*N_RESULTS);
-  cudaMemset(dev_countbits, 0, sizeof(uint32_t)*NUM_COUNTBITS_WORDS);
-  search_sha512_kernel<<<gridsize, 64>>>(dev_data, dev_hashes, dev_countbits);
-  filter_sha512_kernel<<<gridsize, 64>>>(dev_hashes, dev_countbits);
-  cudaMemset(dev_countbits, 0, sizeof(uint32_t)*NUM_COUNTBITS_WORDS);
-  populate_filter_kernel<<<gridsize, 64>>>(dev_hashes, dev_countbits);
-  filter_and_rewrite_sha512_kernel<<<gridsize, 64>>>(dev_hashes, dev_countbits, dev_results);
+  cudaMemsetAsync(dev_results, 0, sizeof(uint64_t)*N_RESULTS, *streamptr);
+  cudaMemsetAsync(dev_countbits, 0, sizeof(uint32_t)*NUM_COUNTBITS_WORDS, *streamptr);
+  search_sha512_kernel<<<gridsize, 64, 0, *streamptr>>>(dev_data, dev_hashes, dev_countbits);
+  filter_sha512_kernel<<<gridsize, 64, 0, *streamptr>>>(dev_hashes, dev_countbits);
+  cudaMemsetAsync(dev_countbits, 0, sizeof(uint32_t)*NUM_COUNTBITS_WORDS, *streamptr);
+  populate_filter_kernel<<<gridsize, 64, 0, *streamptr>>>(dev_hashes, dev_countbits);
+  filter_and_rewrite_sha512_kernel<<<gridsize, 64, 0, *streamptr>>>(dev_hashes, dev_countbits, dev_results);
+  error = cudaMemcpyAsync(hashes, dev_results, sizeof(uint64_t)*N_RESULTS, cudaMemcpyDeviceToHost, *streamptr);
 
   error = cudaDeviceSynchronize();
   if (error != cudaSuccess) {
     fprintf(stderr, "Error in kernel exec (%d)\n", error);
     return -1;
   }
-
-  error = cudaMemcpy(hashes, dev_results, sizeof(uint64_t)*N_RESULTS, cudaMemcpyDeviceToHost);
 
   if (error != cudaSuccess) {
     fprintf(stderr, "Could not memcpy dev_hashes out (%d)\n", error);
@@ -172,6 +187,9 @@ void search_sha512_kernel(const __restrict__ uint64_t *dev_data, __restrict__ ui
   }
 
   D[0] = (D[0] & 0xffffffff00000000) | (spot*8);
+  for (int i = 1; i < 5; i++) {
+    D[i] = SWAP64(D[i]);
+  }
 
   sha512_block(H, D);
 
@@ -242,15 +260,6 @@ void filter_and_rewrite_sha512_kernel(__restrict__ uint64_t *dev_hashes, const _
 #define SWAP32(n) \
     (((n) << 24) | (((n) & 0xff00) << 8) | (((n) >> 8) & 0xff00) | ((n) >> 24))
 
-#define SWAP64(n) \
-  (((n) << 56)                                        \
-   | (((n) & 0xff00) << 40)                        \
-   | (((n) & 0xff0000) << 24)                        \
-   | (((n) & 0xff000000) << 8)                        \
-   | (((n) >> 8) & 0xff000000)                        \
-   | (((n) >> 24) & 0xff0000)                        \
-   | (((n) >> 40) & 0xff00)                        \
-   | ((n) >> 56))
 
 
 __constant__ uint64_t k[] = {
@@ -315,12 +324,15 @@ __device__ void sha512_block(uint64_t H[8], const uint64_t data[5])
 	 * will also work for our CPU version.  Just sayin' */
 //#pragma unroll 16
 	/* Lots of these middle entries are zero because of the pad */
-	for (int i = 0; i < 5; i++)
-		w[i] = SWAP64(data[i]);
+        w[0] = SWAP64(data[0]);
+#pragma unroll
+	for (int i = 1; i < 5; i++)
+		w[i] = data[i];
+#pragma unroll
 	for (int i = 5; i < 15; i++) {
 	  w[i] = 0;
 	}
-	w[15] = SWAP64(0x2001000000000000ULL);
+	w[15] = 0x120; /* SWAP64(0x2001000000000000ULL); */
 
 	uint64_t t1, t2;
 
